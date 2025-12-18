@@ -21,29 +21,29 @@ RUN mkdir -p /ragflow/rag/res/deepdoc /root/.ragflow
 ENV TIKA_SERVER_JAR="file:///ragflow/tika-server-standard-3.0.0.jar"
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Setup apt
-RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
-    apt update && \
-    apt --no-install-recommends install -y ca-certificates; \
-    if [ "$NEED_MIRROR" == "1" ]; then \
+# Setup apt sources
+RUN apt update && apt --no-install-recommends install -y ca-certificates
+RUN if [ "$NEED_MIRROR" = "1" ]; then \
         sed -i 's|http://archive.ubuntu.com/ubuntu|https://mirrors.tuna.tsinghua.edu.cn/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources; \
         sed -i 's|http://security.ubuntu.com/ubuntu|https://mirrors.tuna.tsinghua.edu.cn/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources; \
-    fi; \
-    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    fi
+RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache && \
-    chmod 1777 /tmp && \
-    apt update && \
-    apt install -y libglib2.0-0 libglx-mesa0 libgl1 && \
-    apt install -y pkg-config libicu-dev libgdiplus && \
-    apt install -y default-jdk && \
-    apt install -y libatk-bridge2.0-0 && \
-    apt install -y libpython3-dev libgtk-4-1 libnss3 xdg-utils libgbm-dev && \
-    apt install -y libjemalloc-dev && \
-    apt install -y nginx unzip curl wget git vim less && \
-    apt install -y ghostscript && \
-    apt install -y pandoc && \
-    apt install -y texlive && \
-    apt install -y fonts-freefont-ttf fonts-noto-cjk
+    chmod 1777 /tmp
+RUN apt update
+
+# Install packages in small batches to avoid high CPU spikes
+RUN apt install -y libglib2.0-0 libglx-mesa0 libgl1
+RUN apt install -y pkg-config libicu-dev libgdiplus
+RUN apt install -y default-jdk
+RUN apt install -y libatk-bridge2.0-0
+RUN apt install -y libpython3-dev libgtk-4-1 libnss3 xdg-utils libgbm-dev
+RUN apt install -y libjemalloc-dev
+RUN apt install -y nginx unzip curl wget git vim less
+RUN apt install -y ghostscript
+RUN apt install -y pandoc
+RUN apt install -y texlive
+RUN apt install -y fonts-freefont-ttf fonts-noto-cjk
 
 # Install uv from local file
 RUN if [ "$NEED_MIRROR" == "1" ]; then \
@@ -126,6 +126,8 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,id=ragflow_uv,target=/root/.cache/uv,sharing=locked \
     if [ "$NEED_MIRROR" == "1" ]; then \
         sed -i 's|pypi.org|pypi.tuna.tsinghua.edu.cn|g' uv.lock; \
+        # Configure git proxy for GitHub
+        git config --global url."https://gh-proxy.com/https://github.com/".insteadOf "https://github.com/"; \
     else \
         sed -i 's|pypi.tuna.tsinghua.edu.cn|pypi.org|g' uv.lock; \
     fi; \
@@ -179,4 +181,6 @@ COPY --from=builder /ragflow/web/dist /ragflow/web/dist
 
 COPY --from=builder /ragflow/VERSION /ragflow/VERSION
 ENTRYPOINT ["./entrypoint.sh"]
+
+
 
