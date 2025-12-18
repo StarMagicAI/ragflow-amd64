@@ -1,14 +1,18 @@
 # This builds an image that contains the resources needed by Dockerfile
-#
 FROM scratch
 
-# Copy resources downloaded via download_deps.py
-# NOTE: For ARM64 builds, uv-aarch64-unknown-linux-gnu.tar.gz is required
-# Chrome/Chromedriver are optional on ARM64 (will use system chromium instead)
-COPY chromedriver-linux64-121-0-6167-85 chrome-linux64-121-0-6167-85 cl100k_base.tiktoken libssl1.1_1.1.1f-1ubuntu2_amd64.deb libssl1.1_1.1.1f-1ubuntu2_arm64.deb tika-server-standard-3.0.0.jar tika-server-standard-3.0.0.jar.md5 libssl*.deb /
-# Copy uv binaries (both architectures if available)
-COPY uv-*.tar.gz /
+# Copy individual resource files
+COPY chromedriver-linux64-121-0-6167-85 /chromedriver-linux64-121-0-6167-85
+COPY chrome-linux64-121-0-6167-85 /chrome-linux64-121-0-6167-85
+COPY cl100k_base.tiktoken /cl100k_base.tiktoken
+COPY libssl1.1_1.1.1f-1ubuntu2_amd64.deb /libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+COPY libssl1.1_1.1.1f-1ubuntu2_arm64.deb /libssl1.1_1.1.1f-1ubuntu2_arm64.deb
+COPY tika-server-standard-3.0.0.jar /tika-server-standard-3.0.0.jar
+COPY tika-server-standard-3.0.0.jar.md5 /tika-server-standard-3.0.0.jar.md5
 
+# Copy uv binary (use the one you have)
+COPY uv-x86_64-unknown-linux-gnu.tar.gz /uv-x86_64-unknown-linux-gnu.tar.gz
+
+# Copy directories
 COPY nltk_data /nltk_data
-
 COPY huggingface.co /huggingface.co
