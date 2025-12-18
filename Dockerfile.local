@@ -123,14 +123,11 @@ WORKDIR /ragflow
 # install dependencies from uv.lock file
 COPY pyproject.toml uv.lock ./
 
-# Configure git to use proxy for GitHub (for cloning dependencies)
-RUN git config --global url."https://gh-proxy.com/https://github.com/".insteadOf "https://github.com/"
-
-# https://github.com/astral-sh/uv/issues/10462
-# uv records index url into uv.lock but doesn't failover among multiple indexes
 RUN --mount=type=cache,id=ragflow_uv,target=/root/.cache/uv,sharing=locked \
     if [ "$NEED_MIRROR" == "1" ]; then \
         sed -i 's|pypi.org|pypi.tuna.tsinghua.edu.cn|g' uv.lock; \
+        # Configure git proxy for GitHub
+        git config --global url."https://gh-proxy.com/https://github.com/".insteadOf "https://github.com/"; \
     else \
         sed -i 's|pypi.tuna.tsinghua.edu.cn|pypi.org|g' uv.lock; \
     fi; \
