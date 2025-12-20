@@ -132,9 +132,11 @@ RUN --mount=type=cache,id=ragflow_uv,target=/root/.cache/uv,sharing=locked \
     else \
         sed -i 's|pypi.tuna.tsinghua.edu.cn|pypi.org|g' uv.lock; \
     fi; \
+    # Create venv first
+    uv venv --python 3.12 && \
     # Pre-install graspologic from local directory
     uv pip install /tmp/graspologic && \
-    # Sync remaining dependencies, skip graspologic (already installed)
+    # Sync remaining dependencies (graspologic already installed, will be skipped)
     uv sync --python 3.12 --frozen
 
 COPY web web
