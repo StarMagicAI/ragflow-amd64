@@ -126,8 +126,6 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,id=ragflow_uv,target=/root/.cache/uv,sharing=locked \
     if [ "$NEED_MIRROR" == "1" ]; then \
         sed -i 's|pypi.org|pypi.tuna.tsinghua.edu.cn|g' uv.lock; \
-        # Configure git proxy for GitHub
-        git config --global url."https://gh-proxy.com/https://github.com/".insteadOf "https://github.com/"; \
     else \
         sed -i 's|pypi.tuna.tsinghua.edu.cn|pypi.org|g' uv.lock; \
     fi; \
