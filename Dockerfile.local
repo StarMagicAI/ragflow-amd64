@@ -123,12 +123,18 @@ WORKDIR /ragflow
 # install dependencies from uv.lock file
 COPY pyproject.toml uv.lock ./
 
+# Copy pre-downloaded graspologic to avoid network issues in container
+COPY graspologic_local /tmp/graspologic
+
 RUN --mount=type=cache,id=ragflow_uv,target=/root/.cache/uv,sharing=locked \
     if [ "$NEED_MIRROR" == "1" ]; then \
         sed -i 's|pypi.org|pypi.tuna.tsinghua.edu.cn|g' uv.lock; \
     else \
         sed -i 's|pypi.tuna.tsinghua.edu.cn|pypi.org|g' uv.lock; \
     fi; \
+    # Pre-install graspologic from local directory
+    uv pip install /tmp/graspologic && \
+    # Sync remaining dependencies, skip graspologic (already installed)
     uv sync --python 3.12 --frozen
 
 COPY web web
