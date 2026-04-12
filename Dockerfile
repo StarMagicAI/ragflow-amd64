@@ -73,13 +73,32 @@ RUN --mount=type=bind,from=infiniflow/ragflow_deps:latest,source=/,target=/deps 
 ENV PYTHONDONTWRITEBYTECODE=1 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 ENV PATH=/root/.local/bin:$PATH
 
-# nodejs 12.22 on Ubuntu 22.04 is too old
-RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt purge -y nodejs npm cargo && \
+# nodejs
+ARG NODE_VERSION=20.20.2
+RUN apt purge -y nodejs npm cargo && \
     apt autoremove -y && \
-    apt update && \
-    apt install -y nodejs
+    arch="$(uname -m)"; \
+    if [ "$arch" = "aarch64" ] || [ "$arch" = "arm64" ]; then \
+        node_arch="arm64"; \
+    else \
+        node_arch="x64"; \
+    fi; \
+    if [ "$NEED_MIRROR" == "1" ]; then \
+        node_url="https://npmmirror.com/mirrors/node/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.gz"; \
+    else \
+        node_url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.gz"; \
+    fi; \
+    curl --retry 5 --retry-delay 2 --retry-all-errors -fsSL "$node_url" -o /tmp/node.tar.gz && \
+    rm -rf /usr/local/lib/nodejs \
+           /usr/local/bin/node \
+           /usr/local/bin/npm \
+           /usr/local/bin/npx && \
+    mkdir -p /usr/local/lib/nodejs && \
+    tar -xzf /tmp/node.tar.gz -C /usr/local/lib/nodejs && \
+    ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${node_arch}/bin/node /usr/local/bin/node && \
+    ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${node_arch}/bin/npm /usr/local/bin/npm && \
+    ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${node_arch}/bin/npx /usr/local/bin/npx && \
+    rm -f /tmp/node.tar.gz
 
 # A modern version of cargo is needed for the latest version of the Rust compiler.
 RUN apt update && apt install -y curl build-essential \
