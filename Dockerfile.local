@@ -105,16 +105,16 @@ RUN cargo --version && rustc --version
 
 # ODBC driver
 RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
-    curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
-    curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
-    apt update && \
+    apt install -y unixodbc-dev && \
+    curl --retry 5 --retry-delay 2 --retry-all-errors -fsSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
+    curl --retry 5 --retry-delay 2 --retry-all-errors -fsSL https://packages.microsoft.com/config/ubuntu/22.04/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
+    apt update || true && \
     arch="$(uname -m)"; \
     if [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then \
-        ACCEPT_EULA=Y apt install -y unixodbc-dev msodbcsql18; \
+        ACCEPT_EULA=Y apt install -y msodbcsql18 || echo "Skipping msodbcsql18 install"; \
     else \
-        ACCEPT_EULA=Y apt install -y unixodbc-dev msodbcsql17; \
-    fi || \
-    { echo "Failed to install ODBC driver"; exit 1; }
+        ACCEPT_EULA=Y apt install -y msodbcsql17 || echo "Skipping msodbcsql17 install"; \
+    fi
 
 # Selenium - use chromium for ARM64
 RUN arch="$(uname -m)"; \
@@ -207,4 +207,3 @@ COPY --from=builder /ragflow/web/dist /ragflow/web/dist
 
 COPY --from=builder /ragflow/VERSION /ragflow/VERSION
 ENTRYPOINT ["./entrypoint.sh"]
-
