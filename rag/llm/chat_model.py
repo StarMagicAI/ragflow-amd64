@@ -60,6 +60,17 @@ ERROR_PREFIX = "**ERROR**"
 LENGTH_NOTIFICATION_CN = "······\n由于大模型的上下文窗口大小限制，回答已经被大模型截断。"
 LENGTH_NOTIFICATION_EN = "...\nThe answer is truncated by your chosen LLM due to its limitation on context length."
 
+def _apply_qwen3_request_kwargs(model_name: str, request_kwargs: dict | None = None):
+    request_kwargs = dict(request_kwargs) if request_kwargs else {}
+    if "qwen3" in (model_name or "").lower():
+        extra_body = dict(request_kwargs.get("extra_body") or {})
+        extra_body["enable_thinking"] = False
+        chat_template_kwargs = dict(extra_body.get("chat_template_kwargs") or {})
+        chat_template_kwargs["enable_thinking"] = False
+        extra_body["chat_template_kwargs"] = chat_template_kwargs
+        request_kwargs["extra_body"] = extra_body
+    return request_kwargs
+
 
 class Base(ABC):
     def __init__(self, key, model_name, base_url, **kwargs):
@@ -143,6 +154,7 @@ class Base(ABC):
         stop = kwargs.get("stop")
         if stop:
             request_kwargs["stop"] = stop
+        request_kwargs = _apply_qwen3_request_kwargs(self.model_name, request_kwargs)
 
         response = await self.async_client.chat.completions.create(**request_kwargs)
         async for resp in response:
@@ -289,7 +301,17 @@ class Base(ABC):
             try:
                 for _ in range(self.max_rounds + 1):
                     logging.info(f"{self.tools=}")
-                    response = await self.async_client.chat.completions.create(model=self.model_name, messages=history, tools=self.tools, tool_choice="auto", **gen_conf)
+                    request_kwargs = _apply_qwen3_request_kwargs(
+                        self.model_name,
+                        {
+                            "model": self.model_name,
+                            "messages": history,
+                            "tools": self.tools,
+                            "tool_choice": "auto",
+                            **gen_conf,
+                        },
+                    )
+                    response = await self.async_client.chat.completions.create(**request_kwargs)
                     tk_count += total_token_count_from_response(response)
                     if any([not response.choices, not response.choices[0].message]):
                         raise Exception(f"500 response structure error. Response: {response}")
@@ -346,7 +368,18 @@ class Base(ABC):
                     reasoning_start = False
                     logging.info(f"{tools=}")
 
-                    response = await self.async_client.chat.completions.create(model=self.model_name, messages=history, stream=True, tools=tools, tool_choice="auto", **gen_conf)
+                    request_kwargs = _apply_qwen3_request_kwargs(
+                        self.model_name,
+                        {
+                            "model": self.model_name,
+                            "messages": history,
+                            "stream": True,
+                            "tools": tools,
+                            "tool_choice": "auto",
+                            **gen_conf,
+                        },
+                    )
+                    response = await self.async_client.chat.completions.create(**request_kwargs)
 
                     final_tool_calls = {}
                     answer = ""
@@ -413,7 +446,18 @@ class Base(ABC):
                 logging.warning(f"Exceed max rounds: {self.max_rounds}")
                 history.append({"role": "user", "content": f"Exceed max rounds: {self.max_rounds}"})
 
-                response = await self.async_client.chat.completions.create(model=self.model_name, messages=history, stream=True, tools=tools, tool_choice="auto", **gen_conf)
+                request_kwargs = _apply_qwen3_request_kwargs(
+                    self.model_name,
+                    {
+                        "model": self.model_name,
+                        "messages": history,
+                        "stream": True,
+                        "tools": tools,
+                        "tool_choice": "auto",
+                        **gen_conf,
+                    },
+                )
+                response = await self.async_client.chat.completions.create(**request_kwargs)
 
                 async for resp in response:
                     if not hasattr(resp, "choices") or not resp.choices:
@@ -459,8 +503,7 @@ class Base(ABC):
 
             return final_ans.strip(), tol_token
 
-        if self.model_name.lower().find("qwen3") >= 0:
-            kwargs["extra_body"] = {"enable_thinking": False}
+        kwargs = _apply_qwen3_request_kwargs(self.model_name, kwargs)
 
         response = await self.async_client.chat.completions.create(model=self.model_name, messages=history, **gen_conf, **kwargs)
 
@@ -1264,8 +1307,7 @@ class LiteLLMBase(ABC):
                 hist.insert(0, {"role": "system", "content": system})
 
         logging.info("[HISTORY]" + json.dumps(hist, ensure_ascii=False, indent=2))
-        if self.model_name.lower().find("qwen3") >= 0:
-            kwargs["extra_body"] = {"enable_thinking": False}
+        kwargs = _apply_qwen3_request_kwargs(self.model_name, kwargs)
 
         completion_args = self._construct_completion_args(history=hist, stream=False, tools=False, **gen_conf)
 
